@@ -348,7 +348,10 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
     // check if accept drop
 
     var highlightView = [_selectedView superview];
-    if (doublePage) highlightView = [highlightView superview];
+    if (doublePage) {
+      [[_selectedView superview] superview]._DOMElement.style["border"] = "none";
+      highlightView = [[hoverView superview] superview];
+    }
     highlightView._DOMElement.style["border"] = "3px solid #3399ff";
 
     /* FIXME: precondition: fromIndexPath.section == toIndexPath.section */

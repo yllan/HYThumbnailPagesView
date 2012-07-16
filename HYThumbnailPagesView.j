@@ -361,7 +361,7 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
     var section = [fromIndexPath section];
     var views = _viewsForSection[section];
     var newOrderIndexes = [self newOrderIndexesByMovingIndexPath: fromIndexPath toIndexPath: toIndexPath];
-    CPLog([CPString JSONFromObject: newOrderIndexes]);
+
     for (var idx = 0; idx < [newOrderIndexes count]; idx++) {
       [newOrder addObject: views[newOrderIndexes[idx]]];
     }

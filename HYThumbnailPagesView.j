@@ -270,7 +270,62 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
 {
   CPLog("begin");
 }
- 
+
+/* Returns an array containing the index of the corresponding element from original array. */
+- (CPArray) newOrderIndexesByMovingIndexPath: (CPIndexPath)fromIndexPath toIndexPath: (CPIndexPath)toIndexPath
+{
+  var section = [fromIndexPath section];
+  var views = _viewsForSection[section];
+  var pages = [views count];
+  var doublePage = [[views[[fromIndexPath page]] superview] pageType] == HYNonseperablePairPage;
+
+  var newOrder = [];
+  var leftIndex = Math.min([fromIndexPath page], [toIndexPath page]),
+      rightIndex = Math.max([fromIndexPath page], [toIndexPath page]);
+  var findNextItemDirection = [fromIndexPath page] < [toIndexPath page] ? 1 : -1;
+  // if we want to move page to later postion, then newPosition[i] = oldPosition[i + 1]
+  //
+  // old: from  i     j      k      to
+  // new: i     j     k      to     from
+
+  if (doublePage) {
+    // FIXME: Assumes the pages in section is all paired.
+    var fromLeft = [fromIndexPath page] & (~1);
+    var fromRight = fromLeft + 1;
+    leftIndex = leftIndex & (~1);
+    rightIndex = rightIndex | 1;
+
+    for (var idx = 0; idx < pages; idx += 2) {
+      if (idx == [toIndexPath page] || idx + 1 == [toIndexPath page]) {
+        newOrder[idx] = fromLeft;
+        newOrder[idx + 1] = fromRight;
+      } else if (idx < leftIndex || idx > rightIndex) {
+        newOrder[idx] = idx;
+        newOrder[idx + 1] = idx + 1;
+      } else {
+        newOrder[idx] = idx + 2 * findNextItemDirection;
+        newOrder[idx + 1] = idx + 1 + 2 * findNextItemDirection;
+      }
+    }
+  } else {
+    for (var idx = 0; idx < pages; idx++) {
+      if (idx == [toIndexPath page]) {
+        newOrder[idx] = [fromIndexPath page];
+      } else if (idx < leftIndex || idx > rightIndex) {
+        newOrder[idx] = idx;
+      } else if ([[views[idx] superview] pageType] == HYNonseperablePairPage) {
+        newOrder[idx] = idx;
+      } else {
+        var copyFrom = idx + findNextItemDirection;
+        for (; copyFrom >= leftIndex && copyFrom <= rightIndex && [[views[copyFrom] superview] pageType] == HYNonseperablePairPage;
+              copyFrom += findNextItemDirection);
+        newOrder[idx] = copyFrom;
+      }
+    }
+  }
+  return newOrder;
+}
+
 - (void) draggedView: (CPView)aView movedTo: (CGPoint)aPoint
 {
   var fromIndexPath = [[_selectedView superview] indexPath];
@@ -300,44 +355,12 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
     var newOrder = [CPMutableArray new];
     var staticPage = [CPMutableArray new];
 
-    if (!doublePage) {
-      var views = _viewsForSection[[fromIndexPath section]];
-
-      if ([fromIndexPath compare: toIndexPath] == CPOrderedAscending) { // move to back
-        for (var idx = 0; idx < [views count]; idx++) {
-          if (idx < [fromIndexPath page] || idx > [toIndexPath page]) {
-            [newOrder addObject: views[idx]];
-          } else if (idx == [fromIndexPath page]) {
-            // do not insert.
-          } else if ([[views[idx] superview] pageType] != HYNonseperablePairPage) {
-            [newOrder addObject: views[idx]];
-            for (var j = [newOrder count]; j < idx; j++) {
-              [newOrder addObject: views[j]];
-            }
-            if (idx == [toIndexPath page]) {
-              [newOrder addObject: views[[fromIndexPath page]]];
-            }
-          }
-        }
-      } else if ([fromIndexPath compare: toIndexPath] == CPOrderedDescending) {
-        for (var idx = 0; idx < [views count]; idx++) {
-          if (idx < [toIndexPath page] || idx > [fromIndexPath page]) {
-            [newOrder addObject: views[idx]];
-          } else if (idx == [toIndexPath page]) {
-            [newOrder addObject: views[[fromIndexPath page]]];
-          } else if ([[views[idx] superview] pageType] != HYNonseperablePairPage) {
-            var newOrderCount = [newOrder count];
-            for (var j = newOrderCount; j < idx; j++) {
-              [newOrder addObject: views[j]];
-            }
-            [newOrder addObject: views[newOrderCount - 1]];
-          }
-        }
-      } else {
-        newOrder = [_viewsForSection[[fromIndexPath section]] copy];
-      }
-    } else {
-
+    var section = [fromIndexPath section];
+    var views = _viewsForSection[section];
+    var newOrderIndexes = [self newOrderIndexesByMovingIndexPath: fromIndexPath toIndexPath: toIndexPath];
+    CPLog([CPString JSONFromObject: newOrderIndexes]);
+    for (var idx = 0; idx < [newOrderIndexes count]; idx++) {
+      [newOrder addObject: views[newOrderIndexes[idx]]];
     }
 
     var containers = _containerViews.filter(function(view) {
@@ -350,13 +373,11 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
       var container = containers[idx];
       if ([container leftView] != nil) {
         var v = newOrder.shift();
-        // CPLog("insert left: " + v);
         [container setLeftView: [v superview]];
         [container addSubview: [v superview]];
       }
       if ([container rightView] != nil) {
         var v = newOrder.shift();
-        // CPLog("insert right: " + v);
         [container setRightView: [v superview]];
         [container addSubview: [v superview]];
       }

@@ -83,4 +83,29 @@
   }
 }
 
+- (BOOL) isDraggablePageAtIndexPath: (CPIndexPath)indexPath
+{
+  var section = [indexPath section], page = [indexPath page];
+  if (section == 0) return NO;
+  if (section == 1 && page == 0) return NO;
+  if (section == 1 && page == 37) return NO;
+  return YES;
+}
+
+- (BOOL) acceptsDropFromIndexPath: (CPIndexPath)droppedIndexPath toIndexPath: (CPIndexPath)toIndexPath
+{
+  var section = [toIndexPath section], page = [toIndexPath page];
+
+  if (section == 0) return NO;
+  if (section == 1 && page == 0) return NO;
+  if (section == 1 && page == 37) return NO;
+
+  if ([self pageTypeAtIndexPath: droppedIndexPath] == HYNonseperablePairPage) {
+    if (section == 1 && page <= 1) return NO;
+    if (section == 1 && page >= 36) return NO;
+  }
+
+  return YES;
+}
+
 @end

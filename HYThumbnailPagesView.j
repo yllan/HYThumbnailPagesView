@@ -3,17 +3,16 @@
 /*
   Data Source must implement the protocol:
 
-  - (int) sectionCount;
-  - (int) pageCountForSection: (int)sectionIndex;
-  - (CPSize) pageSize;
-  - (CPView) viewForPageAtIndexPath: (CPIndexPath)indexPath;
+  - (int) sectionCount
+  - (int) pageCountForSection: (int)sectionIndex
+  - (CPSize) pageSize
+  - (CPView) viewForPageAtIndexPath: (CPIndexPath)indexPath
 
   Delegate Methods. Supports drag-n-drop.
 
-  - (int) pageTypeAtIndexPath: (CPIndexPath)indexPath;
+  - (int) pageTypeAtIndexPath: (CPIndexPath)indexPath
   - (BOOL) isDraggablePageAtIndexPath: (CPIndexPath)indexPath
-  - (BOOL) acceptsDropFromIndexPath: (CPIndexPath)droppedIndexPath toIndexPath: (CPIndexPath)toIndexPath;
-  -
+  - (BOOL) acceptsDropFromIndexPath: (CPIndexPath)droppedIndexPath toIndexPath: (CPIndexPath)toIndexPath
 */
 
 @implementation CPIndexPath (HYThumbnailPagesViewAdditions)
@@ -230,16 +229,17 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
       (ABS(locationInWindow.y - mouseDownLocationInWindow.y) < 3))
       return;
 
-  /* TODO: check if this view is draggable! */
 
   // Set up the pasteboard
-  var dragTypes = [HYThumbnailPagesViewSinglePageDragType];
-
+  var dragTypes = [HYThumbnailPagesViewSinglePageDragType]; // Well, dragType seems doesn't matter in my implementation. May fix this later.
   var pb = [[CPPasteboard pasteboardWithName: CPDragPboard] declareTypes: dragTypes owner: self];
 
   var mouseDownLocationInView = [self convertPointFromBase: mouseDownLocationInWindow];
 
   var indexPath = [[_selectedView superview] indexPath]; // superview is a SinglePageBackgroundView
+
+  if ([_delegate respondsToSelector: @selector(isDraggablePageAtIndexPath:)] && ![_delegate isDraggablePageAtIndexPath: indexPath])
+    return;
 
   var draggedView = [CPView new];
   [draggedView setBackgroundColor: [CPColor whiteColor]];
@@ -337,64 +337,63 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
   if (_droppingIndexPath && toIndexPath && [_droppingIndexPath compare: toIndexPath] == CPOrderedSame)
     return;
 
-  if (true) {
+  if (!doublePage && [[hoverView superview] pageType] == HYNonseperablePairPage) return;
+  if ([_delegate respondsToSelector: @selector(acceptsDropFromIndexPath:toIndexPath:)] &&
+      ![_delegate acceptsDropFromIndexPath: fromIndexPath toIndexPath: toIndexPath]) return;
 
-    if (!doublePage && [[hoverView superview] pageType] == HYNonseperablePairPage) return;
+  _droppingIndexPath = toIndexPath;
 
-    _droppingIndexPath = toIndexPath;
+  if (_droppingIndexPath == nil) return;
 
-    if (_droppingIndexPath == nil) return;
+  // check if accept drop
 
-    // check if accept drop
+  var highlightView = [_selectedView superview];
+  if (doublePage) {
+    [[_selectedView superview] superview]._DOMElement.style["border"] = "none";
+    highlightView = [[hoverView superview] superview];
+  }
+  highlightView._DOMElement.style["border"] = "3px solid #3399ff";
 
-    var highlightView = [_selectedView superview];
-    if (doublePage) {
-      [[_selectedView superview] superview]._DOMElement.style["border"] = "none";
-      highlightView = [[hoverView superview] superview];
+  /* FIXME: precondition: fromIndexPath.section == toIndexPath.section */
+  var newOrder = [CPMutableArray new];
+  var staticPage = [CPMutableArray new];
+
+  var section = [fromIndexPath section];
+  var views = _viewsForSection[section];
+  var newOrderIndexes = [self newOrderIndexesByMovingIndexPath: fromIndexPath toIndexPath: toIndexPath];
+
+  for (var idx = 0; idx < [newOrderIndexes count]; idx++) {
+    [newOrder addObject: views[newOrderIndexes[idx]]];
+  }
+
+  var containers = _containerViews.filter(function(view) {
+    return [view section] == [fromIndexPath section];
+  });
+
+  var size = [_dataSource pageSize];
+
+  for (var idx = 0; idx < [containers count]; idx++) {
+    var container = containers[idx];
+    if ([container leftView] != nil) {
+      var v = newOrder.shift();
+      [container setLeftView: [v superview]];
+      [container addSubview: [v superview]];
     }
-    highlightView._DOMElement.style["border"] = "3px solid #3399ff";
-
-    /* FIXME: precondition: fromIndexPath.section == toIndexPath.section */
-    var newOrder = [CPMutableArray new];
-    var staticPage = [CPMutableArray new];
-
-    var section = [fromIndexPath section];
-    var views = _viewsForSection[section];
-    var newOrderIndexes = [self newOrderIndexesByMovingIndexPath: fromIndexPath toIndexPath: toIndexPath];
-
-    for (var idx = 0; idx < [newOrderIndexes count]; idx++) {
-      [newOrder addObject: views[newOrderIndexes[idx]]];
+    if ([container rightView] != nil) {
+      var v = newOrder.shift();
+      [container setRightView: [v superview]];
+      [container addSubview: [v superview]];
     }
 
-    var containers = _containerViews.filter(function(view) {
-      return [view section] == [fromIndexPath section];
-    });
-
-    var size = [_dataSource pageSize];
-
-    for (var idx = 0; idx < [containers count]; idx++) {
-      var container = containers[idx];
-      if ([container leftView] != nil) {
-        var v = newOrder.shift();
-        [container setLeftView: [v superview]];
-        [container addSubview: [v superview]];
-      }
-      if ([container rightView] != nil) {
-        var v = newOrder.shift();
-        [container setRightView: [v superview]];
-        [container addSubview: [v superview]];
-      }
-
-      if ([container pageCount] == 1) {
-        [[container leftView] setFrame: CGRectMake(0, 0, size.width, size.height)];
-      } else if ([container pageCount] == 2) {
-        [[container leftView] setFrame: CGRectMake(0, 0, size.width, size.height)];
-        [[container rightView] setFrame: CGRectMake(size.width, 0, size.width, size.height)];
-      }
-
+    if ([container pageCount] == 1) {
+      [[container leftView] setFrame: CGRectMake(0, 0, size.width, size.height)];
+    } else if ([container pageCount] == 2) {
+      [[container leftView] setFrame: CGRectMake(0, 0, size.width, size.height)];
+      [[container rightView] setFrame: CGRectMake(size.width, 0, size.width, size.height)];
     }
 
   }
+
 }
 
 - (void) draggedView: (CPView)aView endedAt: (CGPoint)aLocation operation: (CPDragOperation)anOperation

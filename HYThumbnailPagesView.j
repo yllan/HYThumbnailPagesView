@@ -404,6 +404,33 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
     if (doublePage) previousHighlightView = [previousHighlightView superview];
 
     previousHighlightView._DOMElement.style["border"] = "none";
+
+
+    // Rearrange the indexPath
+    var section = [_droppingIndexPath section];
+    var containers = _containerViews.filter(function(view) {
+      return [view section] == section;
+    });
+
+    var newOrder = [];
+    var page = 0;
+    for (var idx = 0; idx < [containers count]; idx++) {
+      var container = containers[idx];
+      if ([container leftView] != nil) {
+        [[container leftView] setIndexPath: [CPIndexPath indexPathWithSection: section page: page++]];
+        newOrder.push([[container leftView] subviews][0]);
+        // @FIXME This code is bad! It depends on the view hierarchy / subview ordering, which may be changed in the future.
+        // But it works now. When I have time, I will come back to fix this. Orz
+      }
+
+      if ([container rightView] != nil) {
+        [[container rightView] setIndexPath: [CPIndexPath indexPathWithSection: section page: page++]];
+        newOrder.push([[container rightView] subviews][0]);
+        // This stinks, too.
+      }
+    }
+
+    _viewsForSection[section] = newOrder;
   }
 
   var opCode = "?"

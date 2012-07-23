@@ -13,6 +13,9 @@
   - (int) pageTypeAtIndexPath: (CPIndexPath)indexPath
   - (BOOL) isDraggablePageAtIndexPath: (CPIndexPath)indexPath
   - (BOOL) acceptsDropFromIndexPath: (CPIndexPath)droppedIndexPath toIndexPath: (CPIndexPath)toIndexPath
+
+  - (void) viewsDidRearrangedSection: (int)section newOrder: (CPArray)reorderIndex
+
 */
 
 @implementation CPIndexPath (HYThumbnailPagesViewAdditions)
@@ -412,25 +415,31 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
       return [view section] == section;
     });
 
-    var newOrder = [];
+    var newOrderIndexes = [];
+    var newOrderViews = [];
     var page = 0;
     for (var idx = 0; idx < [containers count]; idx++) {
       var container = containers[idx];
       if ([container leftView] != nil) {
+        newOrderIndexes.push([[[container leftView] indexPath] page]);
         [[container leftView] setIndexPath: [CPIndexPath indexPathWithSection: section page: page++]];
-        newOrder.push([[container leftView] subviews][0]);
+        newOrderViews.push([[container leftView] subviews][0]);
         // @FIXME This code is bad! It depends on the view hierarchy / subview ordering, which may be changed in the future.
         // But it works now. When I have time, I will come back to fix this. Orz
       }
 
       if ([container rightView] != nil) {
+        newOrderIndexes.push([[[container rightView] indexPath] page]);
         [[container rightView] setIndexPath: [CPIndexPath indexPathWithSection: section page: page++]];
-        newOrder.push([[container rightView] subviews][0]);
+        newOrderViews.push([[container rightView] subviews][0]);
         // This stinks, too.
       }
     }
 
-    _viewsForSection[section] = newOrder;
+    _viewsForSection[section] = newOrderViews;
+    if ([_dataSource respondsToSelector: @selector(viewsDidRearrangedSection:newOrder:)]) {
+      [_dataSource viewsDidRearrangedSection: section newOrder: newOrderIndexes];
+    }
   }
 
   var opCode = "?"

@@ -108,4 +108,11 @@
   return YES;
 }
 
+- (void) viewsDidRearrangedSection: (int)section newOrder: (CPArray)newOrder
+{
+  CPLog([CPString JSONFromObject: newOrder]);
+  // You should rearrange the data model everytime it reaches here.
+  // Otherwise the order will not be sync between model and view.
+}
+
 @end

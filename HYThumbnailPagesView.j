@@ -125,10 +125,10 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
     [_viewsForSection addObject: sectionViews];
   }
 
-  [self setNeedsLayout];
+  [self tile];
 }
 
-- (void) layoutSubviews
+- (void) tile
 {
   var horizontalPadding = 20, verticalPadding = 20;
   var width = [self bounds].size.width;
@@ -172,10 +172,21 @@ HYThumbnailPagesViewDoublePageDragType = "HYThumbnailPagesViewDoublePageDragType
     previousX += (containerWidth + HYThumbnailPagesViewDefaultSpacing);
   }
 
-  for (var idx = 0; idx < _sectionCount; idx++)
-    for (var p = 0; p < [_cachedFramesForSection[idx] count]; p++) {
-      // CPLog("[" + idx + "][" + p + "]=" + CPStringFromRect(_cachedFramesForSection[idx][p]));
-    }
+  var superview = [self superview],
+      proposedHeight = previousY + size.height + verticalPadding;
+
+  if ([superview isKindOfClass:[CPClipView class]])
+  {
+    var superviewSize = [superview bounds].size;
+    proposedHeight = MAX(superviewSize.height, proposedHeight);
+  }
+
+  [self setFrameSize: CGSizeMake(width, proposedHeight)];
+}
+
+- (void)resizeSubviewsWithOldSize:(CGSize)aSize
+{
+    [self tile];
 }
 
 - (void) mouseDown: (CPEvent)anEvent
